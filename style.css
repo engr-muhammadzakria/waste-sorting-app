@@ -125,3 +125,7 @@ p {
     object-fit: cover;
     margin-top: 10px;
 }
+
+.countdown {
+    z-index: 10;
+}
