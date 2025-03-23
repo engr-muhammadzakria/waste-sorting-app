@@ -38,6 +38,8 @@ const labelCategories = {
     "paper_cups": "Landfill (Miscellaneous)"
 };
 
+const BACKEND_URL = 'http://localhost:5000'; // Update this when deploying
+
 async function loadModel() {
     try {
         model = await tf.loadLayersModel('model/model.json');
@@ -48,7 +50,46 @@ async function loadModel() {
     }
 }
 
-// Process image for prediction
+// Fetch and display prediction history
+async function loadHistory() {
+    try {
+        const response = await fetch(`${BACKEND_URL}/api/predictions`);
+        const predictions = await response.json();
+        const historyDiv = document.getElementById('history');
+        historyDiv.innerHTML = '';
+        predictions.forEach((entry, index) => {
+            const feedbackText = entry.userFeedback ? `Feedback: ${entry.userFeedback}` : '';
+            historyDiv.innerHTML += `
+                <p>
+                    ${index + 1}. ${entry.label} (${entry.category}) - Confidence: ${entry.confidence}% at ${new Date(entry.timestamp).toLocaleString()}
+                    ${feedbackText}
+                    ${!entry.userFeedback ? `
+                        <button onclick="addFeedback('${entry._id}', 'correct')">Correct</button>
+                        <button onclick="addFeedback('${entry._id}', 'incorrect')">Incorrect</button>
+                    ` : ''}
+                </p>`;
+        });
+    } catch (error) {
+        console.error('Error fetching history:', error);
+        document.getElementById('history').innerHTML = 'Error: Could not load prediction history.';
+    }
+}
+
+// Add feedback to a prediction
+async function addFeedback(id, feedback) {
+    try {
+        await fetch(`${BACKEND_URL}/api/predictions/${id}/feedback`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ feedback })
+        });
+        await loadHistory(); // Refresh the history
+    } catch (error) {
+        console.error('Error adding feedback:', error);
+    }
+}
+
+// Process image for prediction and save to backend
 async function processImage(img) {
     const tensor = tf.browser.fromPixels(img)
         .toFloat()
@@ -66,6 +107,19 @@ async function processImage(img) {
     const confidence = (maxPrediction * 100).toFixed(2);
     const label = labels[labelIndex];
     const category = labelCategories[label];
+
+    // Save the prediction to the backend
+    try {
+        const predictionData = { label, category, confidence };
+        await fetch(`${BACKEND_URL}/api/predictions`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(predictionData)
+        });
+        await loadHistory(); // Refresh the history after saving
+    } catch (error) {
+        console.error('Error saving prediction:', error);
+    }
 
     document.getElementById('spinner').style.display = 'none';
     document.getElementById('result-container').style.display = 'block';
@@ -90,7 +144,7 @@ document.getElementById('upload').addEventListener('change', async (event) => {
     }
 });
 
-// Handle camera input with countdown
+// Handle camera input
 document.getElementById('camera').addEventListener('click', async () => {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -98,7 +152,6 @@ document.getElementById('camera').addEventListener('click', async () => {
         video.style.display = 'block';
         video.srcObject = stream;
 
-        // Display countdown
         let countdown = 3;
         const countdownDisplay = document.createElement('div');
         countdownDisplay.className = 'countdown';
@@ -141,6 +194,6 @@ document.getElementById('camera').addEventListener('click', async () => {
     }
 });
 
-
-// Load the model when the page loads
+// Load the model and history when the page loads
 loadModel();
+loadHistory();

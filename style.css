@@ -129,3 +129,38 @@ p {
 .countdown {
     z-index: 10;
 }
+
+/* History container styling */
+.history-container {
+    margin-top: 20px;
+    background-color: #f9f9f9;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.history-container h3 {
+    margin-top: 0;
+    color: #333;
+}
+
+.history-container p {
+    margin: 5px 0;
+    font-size: 16px;
+    color: #333;
+}
+
+.history-container button {
+    background-color: #3498db;
+    color: white;
+    border: none;
+    padding: 5px 10px;
+    margin: 0 5px;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.history-container button:hover {
+    background-color: #2980b9;
+}
