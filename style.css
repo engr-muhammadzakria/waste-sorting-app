@@ -98,8 +98,10 @@ p {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+/* Camera container styling */
 .camera-container {
     margin: 20px 0;
+    text-align: center;
 }
 
 .camera-btn {
@@ -121,4 +123,5 @@ p {
     border-radius: 8px;
     max-height: 300px;
     object-fit: cover;
+    margin-top: 10px;
 }

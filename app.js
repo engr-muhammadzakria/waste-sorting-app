@@ -39,43 +39,108 @@ const labelCategories = {
 };
 
 async function loadModel() {
-    model = await tf.loadLayersModel('model/model.json'); // Update with the correct path to your model
-    console.log('Model loaded');
+    try {
+        model = await tf.loadLayersModel('model/model.json');
+        console.log('Model loaded');
+    } catch (error) {
+        console.error('Failed to load model:', error);
+        document.getElementById('result').innerHTML = 'Error: Could not load the model. Please try again later.';
+    }
+}
+
+// Process image for prediction
+async function processImage(img) {
+    const tensor = tf.browser.fromPixels(img)
+        .toFloat()
+        .div(tf.scalar(255))
+        .resizeNearestNeighbor([224, 224])
+        .expandDims(0);
+
+    document.getElementById('spinner').style.display = 'block';
+    document.getElementById('result-container').style.display = 'none';
+
+    const predictions = await model.predict(tensor).data();
+    console.log('Predictions:', predictions);
+    const maxPrediction = Math.max(...predictions);
+    const labelIndex = predictions.indexOf(maxPrediction);
+    const confidence = (maxPrediction * 100).toFixed(2);
+    const label = labels[labelIndex];
+    const category = labelCategories[label];
+
+    document.getElementById('spinner').style.display = 'none';
+    document.getElementById('result-container').style.display = 'block';
+    document.getElementById('result').innerHTML = `Predicted Label: <strong>${label}</strong><br>Category: <strong>${category}</strong><br>Confidence: <strong>${confidence}%</strong>`;
 }
 
 // Handle file upload
 document.getElementById('upload').addEventListener('change', async (event) => {
     const file = event.target.files[0];
     if (file) {
+        if (!file.type.startsWith('image/')) {
+            document.getElementById('result').innerHTML = 'Error: Please upload a valid image file.';
+            return;
+        }
+
         const img = document.getElementById('image');
         img.src = URL.createObjectURL(file);
 
-        // Show the image preview
         img.onload = async () => {
-            const tensor = tf.browser.fromPixels(img)
-                .toFloat()
-                .div(tf.scalar(255)) // Normalize if required
-                .resizeNearestNeighbor([224, 224]) // Adjust as needed
-                .expandDims(0);
-
-            // Show the spinner while loading the prediction
-            document.getElementById('spinner').style.display = 'block';
-            document.getElementById('result-container').style.display = 'none';
-
-            const predictions = await model.predict(tensor).data();
-            console.log('Predictions:', predictions); // Log predictions
-            const labelIndex = predictions.indexOf(Math.max(...predictions));
-            console.log('Predicted Index:', labelIndex); // Log predicted index
-            const label = labels[labelIndex]; // Map index to label name
-            const category = labelCategories[label]; // Map label to category
-
-            // Hide spinner and show result
-            document.getElementById('spinner').style.display = 'none';
-            document.getElementById('result-container').style.display = 'block';
-            document.getElementById('result').innerHTML = `Predicted Label: <strong>${label}</strong><br>Category: <strong>${category}</strong>`;
-        }
+            await processImage(img);
+        };
     }
 });
+
+// Handle camera input with countdown
+document.getElementById('camera').addEventListener('click', async () => {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const video = document.getElementById('video');
+        video.style.display = 'block';
+        video.srcObject = stream;
+
+        // Display countdown
+        let countdown = 3;
+        const countdownDisplay = document.createElement('div');
+        countdownDisplay.className = 'countdown';
+        countdownDisplay.style.position = 'absolute';
+        countdownDisplay.style.top = '50%';
+        countdownDisplay.style.left = '50%';
+        countdownDisplay.style.transform = 'translate(-50%, -50%)';
+        countdownDisplay.style.fontSize = '48px';
+        countdownDisplay.style.color = '#fff';
+        countdownDisplay.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+        countdownDisplay.style.padding = '10px 20px';
+        countdownDisplay.style.borderRadius = '8px';
+        video.parentNode.appendChild(countdownDisplay);
+
+        const countdownInterval = setInterval(() => {
+            countdownDisplay.innerText = countdown;
+            countdown--;
+            if (countdown < 0) {
+                clearInterval(countdownInterval);
+                countdownDisplay.remove();
+
+                const canvas = document.getElementById('canvas');
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                canvas.getContext('2d').drawImage(video, 0, 0);
+
+                const img = document.getElementById('image');
+                img.src = canvas.toDataURL('image/png');
+                video.style.display = 'none';
+                stream.getTracks().forEach(track => track.stop());
+
+                img.onload = async () => {
+                    await processImage(img);
+                };
+            }
+        }, 1000);
+    } catch (error) {
+        console.error('Camera access failed:', error);
+        document.getElementById('result').innerHTML = 'Error: Could not access the camera. Please try uploading an image instead.';
+    }
+});
+
 
 // Load the model when the page loads
 loadModel();
